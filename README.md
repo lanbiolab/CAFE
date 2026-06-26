@@ -17,15 +17,6 @@ This repository contains the core experimental code for **CAFE**, a deep incompl
 
 ![CAFE framework](docs/assets/model_framework.png)
 
-## Highlights
-
-- Multi-view representation learning with online and target encoders.
-- Cross-view projection and contrastive learning for view-consistent features.
-- Graph affinity modeling with second-order proximity through the local LINE module.
-- Adaptive fusion of view-specific representations into a common representation.
-- Dual-driven cluster-center enhancement with single-view and fusion-view centers.
-- Evaluation with ACC, NMI, ARI, and F-score under K-means clustering.
-
 ## Repository Structure
 
 ```text
@@ -33,8 +24,7 @@ This repository contains the core experimental code for **CAFE**, a deep incompl
 |-- config/
 |   `-- Scene15.yaml              # Default experiment configuration
 |-- data/
-|   |-- Scene_15.mat              # Scene15 data used by the default config
-|   `-- Reuters_dim10.mat         # Additional MATLAB-format data file
+|   `-- Scene_15.mat              # Scene15 data used by the default config
 |-- docs/
 |   `-- assets/
 |       |-- model_framework.pdf   # Original paper framework figure
