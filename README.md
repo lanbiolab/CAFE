@@ -95,11 +95,6 @@ train_time: 5
 accelerate: 'yes'
 ```
 
-Results are written under `output_dir` from the YAML file. With the provided config, logs are saved to a directory like:
-
-```text
-CAFE/Scene15_msrt_0.0_tau_0.9_bs_1024_blr_5e-05/log_train.txt
-```
 
 The final log reports the best result for each run and the averaged K-means metrics:
 
