@@ -168,6 +168,7 @@ encoder_dim:
 
 If you find this code useful for your research, please consider citing our paper:
 
+```bibtex
 @article{lan2026cafe,
   title   = {CAFE: Cross-View Adaptive Fusion and Cluster Center Enhancement for Robust Multi-View Clustering},
   author  = {Lan, Wei and Guo, Yinghao and Chen, Qingfeng and Zhang, Shichao and Pan, Shirui and Zhou, Huiyu and Pan, Yi and Wen, Jie},
@@ -176,3 +177,4 @@ If you find this code useful for your research, please consider citing our paper
   pages   = {1--17},
   doi     = {10.1109/TPAMI.2026.3708284}
 }
+```
