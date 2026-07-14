@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**Core PyTorch implementation for incomplete multi-view clustering**
+**Core PyTorch implementation for CAFE: Cross-view Adaptive Fusion and Cluster Center Enhancement for Robust Multi-view Clustering**
 
 ![Python](https://img.shields.io/badge/Python-3.12.5-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.4.1-EE4C2C?logo=pytorch&logoColor=white)
@@ -11,7 +11,7 @@
 
 </div>
 
-This repository contains the core experimental code for **CAFE**, a deep incomplete multi-view clustering framework with cross-view adaptive fusion and dual-driven cluster-center enhancement. The implementation is centered on the `CAFE` model in `model.py`, and provides training, incomplete-view simulation, feature extraction, K-means evaluation, and logging utilities.
+This repository contains the core experimental code for **CAFE**, a deep multi-view clustering framework with cross-view adaptive fusion and dual-driven cluster-center enhancement. The implementation is centered on the `CAFE` model in `model.py`, and provides training, incomplete-view simulation, feature extraction, K-means evaluation, and logging utilities.
 
 > Framework figure: [docs/assets/model_framework.pdf](docs/assets/model_framework.pdf)
 
@@ -166,4 +166,13 @@ encoder_dim:
 
 ## Citation
 
-If this repository is helpful for your research, please cite the corresponding paper. The BibTeX entry can be added here after the final publication metadata is available.
+If you find this code useful for your research, please consider citing our paper:
+
+@article{lan2026cafe,
+  title   = {CAFE: Cross-View Adaptive Fusion and Cluster Center Enhancement for Robust Multi-View Clustering},
+  author  = {Lan, Wei and Guo, Yinghao and Chen, Qingfeng and Zhang, Shichao and Pan, Shirui and Zhou, Huiyu and Pan, Yi and Wen, Jie},
+  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  year    = {2026},
+  pages   = {1--17},
+  doi     = {10.1109/TPAMI.2026.3708284}
+}
