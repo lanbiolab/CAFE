@@ -44,11 +44,47 @@ def load_mat(args):
 
             mat = sio.loadmat(os.path.join(args.data_path, 'cub_googlenet_doc2vec_c10.mat'))
             num_views = mat['X'][0].shape[0]
-            print("num_views:", num_views)
             X = mat['X'][0]
             data_X = [torch.tensor(X[i].astype('float32')).to(args.device) for i in range(num_views)]
 
             label_y = torch.tensor(mat['gt']).squeeze().to(args.device)
+
+        elif args.dataset == "cifar10":
+            mat = sio.loadmat(os.path.join(args.data_path, 'cifar10.mat'))
+            num_views = mat['X'][0].shape[0]
+            X = mat['X'][0]
+            data_X = [torch.tensor(X[i].astype('float32')).to(args.device) for i in range(num_views)]
+            label_y = torch.tensor(mat['Y']).squeeze().to(args.device)
+
+
+        elif args.dataset == "cifar100":
+            mat = sio.loadmat(os.path.join(args.data_path, 'cifar100.mat'))
+            num_views = mat['X'][0].shape[0]
+            X = mat['X'][0]
+            data_X = [torch.tensor(X[i].astype('float32')).to(args.device) for i in range(num_views)]
+            label_y = torch.tensor(mat['Y']).squeeze().to(args.device)
+
+
+        elif args.dataset == "YouTubeFace":
+            mat = sio.loadmat(os.path.join(args.data_path, 'YouTubeFace.mat'))
+            num_views = mat['X'].shape[0]
+            X = mat['X']
+            data_X = [torch.tensor(X[i][0].astype('float32')).to(args.device) for i in range(num_views)]
+            label_y = torch.tensor(mat['Y']).squeeze().to(args.device)
+
+        elif args.dataset == "Caltech256":
+            mat = sio.loadmat(os.path.join(args.data_path, 'Caltech256.mat'))
+            num_views = mat['X'].shape[0]
+            X = mat['X']
+            data_X = [torch.tensor(X[i][0].astype('float32')).to(args.device) for i in range(num_views)]
+            label_y = torch.tensor(mat['Y']).squeeze().to(args.device)
+
+        elif args.dataset == "VGGFace":
+            mat = sio.loadmat(os.path.join(args.data_path, 'VGGFace2_200_4Views.mat'))
+            num_views = mat['X'].shape[1]
+            X = mat['X']
+            data_X = [torch.tensor(X[0][i].astype('float32')).to(args.device) for i in range(num_views)]
+            label_y = torch.tensor(mat['Y']).squeeze().to(args.device)
 
         else:
             raise ValueError("Unknown Dataset")
@@ -88,6 +124,7 @@ def load_mat(args):
             num_views = mat['data'].shape[1]
             X = mat['data'][0]
             data_X = [X[i].T.astype('float32') for i in range(num_views)]
+
             label_y = np.array(np.squeeze(mat['Y'])).astype(np.int32)
 
         elif args.dataset == "cub_googlenet":
@@ -97,6 +134,13 @@ def load_mat(args):
             X = mat['X'][0]
             data_X = [X[i].astype('float32') for i in range(num_views)]
             label_y = np.squeeze(mat['gt'])
+
+        elif args.dataset == "cifar10":
+            mat = sio.loadmat(os.path.join(args.data_path, 'cifar10.mat'))
+            num_views = mat['X'][0].shape[0]
+            X = mat['X'][0]
+            data_X = [torch.tensor(X[i].astype('float32')) for i in range(num_views)]
+            label_y = torch.tensor(mat['Y']).squeeze()
 
         else:
             raise 'Unknown Dataset'
@@ -113,7 +157,7 @@ def load_mat(args):
 
 
 
-    args.n_sample = data_X[0].shape[0]
+    args.n_samples = data_X[0].shape[0]
     return data_X, label_y
 
 
@@ -186,7 +230,6 @@ class IncompleteMultiviewDataset(torch.utils.data.Dataset):
         full_matrix = np.ones((int(alldata_len * (1 - missing_rate)), view_num))
 
         alldata_len = alldata_len - int(alldata_len * (1 - missing_rate))
-        # print("alldata_length:", alldata_len)
         missing_rate = 0.5
         if alldata_len != 0:
             one_rate = 1.0 - missing_rate
@@ -209,12 +252,12 @@ class IncompleteMultiviewDataset(torch.utils.data.Dataset):
                 view_preserve = enc.fit_transform(randint(0, view_num, size=(alldata_len, 1))).toarray()
                 one_num = view_num * alldata_len * one_rate - alldata_len
                 ratio = one_num / (view_num * alldata_len)
-                matrix_iter = (randint(0, 100, size=(alldata_len, view_num)) < int(ratio * 100)).astype(int)
-                a = np.sum(((matrix_iter + view_preserve) > 1).astype(int))
+                matrix_iter = (randint(0, 100, size=(alldata_len, view_num)) < int(ratio * 100)).astype(np.int32)
+                a = np.sum(((matrix_iter + view_preserve) > 1).astype(np.int32))
                 one_num_iter = one_num / (1 - a / one_num)
                 ratio = one_num_iter / (view_num * alldata_len)
-                matrix_iter = (randint(0, 100, size=(alldata_len, view_num)) < int(ratio * 100)).astype(int)
-                matrix = ((matrix_iter + view_preserve) > 0).astype(int)
+                matrix_iter = (randint(0, 100, size=(alldata_len, view_num)) < int(ratio * 100)).astype(np.int32)
+                matrix = ((matrix_iter + view_preserve) > 0).astype(np.int32)
                 ratio = np.sum(matrix) / (view_num * alldata_len)
                 error = abs(one_rate - ratio)
             full_matrix = np.concatenate([matrix, full_matrix], axis=0)
@@ -236,9 +279,13 @@ class IncompleteDatasetSampler:
     def __iter__(self):
         g = torch.Generator()
         g.manual_seed(self.seed + self.epoch)
+
         indices = torch.randperm(self.num_samples, generator=g).tolist()
+
         indices = self.compelte_idx[indices].tolist()
+
         assert len(indices) == self.num_samples
+
         return iter(indices)
 
     def __len__(self):
@@ -246,6 +293,7 @@ class IncompleteDatasetSampler:
 
     def set_epoch(self, epoch: int):
         self.epoch = epoch
+
 
 class DatasetWithIndex(Dataset):
     def __getitem__(self, idx):
