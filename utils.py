@@ -27,16 +27,12 @@ def fix_random_seeds(seed=None):
         cudnn.benchmark = True
 
 
-# def adjust_learning_config(optimizer, epoch, scheduler, args):
 def adjust_learning_config(optimizer, epoch, args):
     if epoch < args.warmup_epochs:
         lr = args.lr * epoch / args.warmup_epochs
     elif epoch > 100 and epoch < 100 + args.warmup_epochs:
         lr = args.lr * (epoch - 100) / args.warmup_epochs
     else:
-        # According to loss updating the learning rate
-        # scheduler.step(loss)
-        # lr = optimizer.param_groups[0]['lr']
         lr = args.lr
 
     for param_group in optimizer.param_groups:
@@ -136,7 +132,7 @@ class SmoothedValue(object):
 
     @property
     def global_avg(self):
-        return self.total / self.count if self.count > 0 else 0  # avoid division by zero
+        return self.total / self.count if self.count > 0 else 0  # 防止除0错误
 
     @property
     def max(self):
