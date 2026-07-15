@@ -11,7 +11,6 @@
 
 </div>
 
-This repository contains the core experimental code for **CAFE**, a deep multi-view clustering framework with cross-view adaptive fusion and dual-driven cluster-center enhancement. The implementation is centered on the `CAFE` model in `model.py`, and provides training, incomplete-view simulation, feature extraction, K-means evaluation, and logging utilities.
 
 > Framework figure: [docs/assets/model_framework.pdf](docs/assets/model_framework.pdf)
 
@@ -24,20 +23,20 @@ This repository contains the core experimental code for **CAFE**, a deep multi-v
 |-- config/
 |   `-- Scene15.yaml              # Default experiment configuration
 |-- data/
-|   `-- Scene_15.mat              # Scene15 data used by the default config
+|   `-- Scene_15.mat              
 |-- docs/
 |   `-- assets/
-|       |-- model_framework.pdf   # Original paper framework figure
-|       `-- model_framework.png   # GitHub README preview
+|       |-- model_framework.pdf  
+|       `-- model_framework.png   
 |-- models/
-|   |-- alias.py                  # Alias sampling utilities
-|   `-- line.py                   # LINE second-order proximity helper
-|-- dataset_loader.py             # MATLAB data loading and incomplete-view masks
-|-- main.py                       # Argument parsing, config merge, experiment loop
-|-- model.py                      # CAFE model definition
-|-- train.py                      # Training and evaluation routines
-|-- utils.py                      # Metrics, logging, seed control, LR schedule
-`-- environment.yml               # Full Conda environment
+|   |-- alias.py                  
+|   `-- line.py                   
+|-- dataset_loader.py             # MATLAB data loading
+|-- main.py                       
+|-- model.py                     
+|-- train.py                     
+|-- utils.py                      
+`-- environment.yml               
 ```
 
 ## Environment
@@ -54,15 +53,12 @@ The complete environment is recorded in `environment.yml`. The most important ve
 | scikit-learn | 1.5.1 |
 | NetworkX | 3.2.1 |
 | Matplotlib | 3.9.2 |
-| PyYAML | 6.0.1 |
-| Munkres | 1.1.4 |
-| torch-geometric | 2.6.1 |
+
 
 Create the environment with Conda:
 
 ```bash
 conda env create -f environment.yml
-conda activate CAFE
 ```
 
 The code imports `torch_clustering.PyTorchKMeans` in `model.py`. This repository includes `torch_clustering/` as a local package. If you remove it or use a clean external environment, install the PyTorch implementation used by this code:
@@ -96,13 +92,6 @@ accelerate: 'yes'
 ```
 
 
-The final log reports the best result for each run and the averaged K-means metrics:
-
-```text
-Best Result: epoch ... by NMI | K-means: NMI = ... ARI = ... F = ... ACC = ...
-Average K-means Result: ACC = mean(std) NMI = mean(std) ARI = mean(std)
-```
-
 ## Incomplete-view Experiments
 
 The incomplete-view mask is generated in `IncompleteMultiviewDataset._get_mask`. To simulate missing views, set `missing_rate` either from the command line or directly in the YAML file:
@@ -133,7 +122,6 @@ Each dataset should have a matching YAML file under `config/`. The key fields ar
 | `train_time` | Number of repeated runs; the seed is increased after each run |
 | `accelerate` | Whether to load tensors directly onto GPU |
 
-The provided implementation is prepared for two-view experiments. Some paths in `model.py`, such as cross-view reconstruction and contrastive pairing, explicitly use view `0` and view `1`.
 
 ## Using a New Dataset
 
@@ -146,7 +134,7 @@ The provided implementation is prepared for two-view experiments. Some paths in 
 python main.py --config_file config/YourDataset.yaml
 ```
 
-For a new two-view dataset, `encoder_dim` should follow this pattern:
+For example, a new two-view dataset, `encoder_dim` should follow this pattern:
 
 ```yaml
 encoder_dim:
@@ -158,8 +146,6 @@ encoder_dim:
 
 | Symptom | Suggested fix |
 | --- | --- |
-| `Namespace` has no attribute `blr` | Always run with a YAML config; `blr` is defined in `config/Scene15.yaml`. |
-| `ModuleNotFoundError: torch_clustering` | Install `torch_clustering` from `https://github.com/Hzzone/torch_clustering`. |
 | CUDA is unavailable | Use a CUDA GPU, or replace the hard-coded `.cuda()` calls with device-aware `.to(device)` logic. |
 | GPU memory is insufficient | Lower `batch_size` in the YAML file. |
 | Dataset shape mismatch | Check `encoder_dim`, `n_samples`, and the `.mat` keys in `dataset_loader.py`. |
