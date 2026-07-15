@@ -1,5 +1,7 @@
 import argparse
 import datetime
+import math
+import os
 import time
 import warnings
 from pathlib import Path
@@ -8,6 +10,7 @@ import numpy as np
 import torch
 import yaml
 from torch.utils import data
+import torch.optim.lr_scheduler as lr_scheduler
 
 from model import CAFE
 import utils
@@ -16,8 +19,6 @@ from dataset_loader import load_dataset, IncompleteDatasetSampler
 
 warnings.filterwarnings("ignore")
 
-import os
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 def get_args_parser():
     parser = argparse.ArgumentParser(description='Training')
@@ -31,12 +32,11 @@ def get_args_parser():
 
     # model parameters
     parser.add_argument('--temperature', type=float, default=0.5)
-    # parser.add_argument('--start_rectify_epoch', type=int, default=100)
     parser.add_argument('--start_rectify_epoch', type=int, default=100)  # rectify from begin
     parser.add_argument('--momentum', type=float, default=0.99)
     parser.add_argument('--drop_rate', type=float, default=0.2)
     parser.add_argument('--n_views', type=int, default=2, help='number of views')
-    parser.add_argument('--n_samples', type=int, default=None, help='number of samples')  # 样本数量
+    parser.add_argument('--n_samples', type=int, default=0, help='number of samples')
     parser.add_argument('--n_classes', type=int, default=10, help='number of classes')
 
     # training setting
@@ -55,8 +55,8 @@ def get_args_parser():
                         help='learning rate (absolute lr)')
 
     # data loader and logger
-    parser.add_argument('--dataset', type=str, default='LandUse21',
-                        choices=['LandUse21', 'Scene15', ])
+    parser.add_argument('--dataset', type=str, default='Scene15',
+                        choices=['Scene15', 'Reuters', 'LandUse21', 'Hdigit', 'cub_googlenet', 'cifar100'])
     parser.add_argument('--missing_rate', type=float, default=0.0)
     parser.add_argument('--data_path', type=str, default='./',
                         help='path to your folder of dataset')
@@ -65,27 +65,24 @@ def get_args_parser():
     parser.add_argument('--output_dir', type=str, default='./',
                         help='path where to save, empty for no saving')
 
-    parser.add_argument('--print_freq', default=10, type=int)
-    parser.add_argument('--best_metric', type=str, default='nmi', choices=['nmi', 'ari', 'f', 'acc'],
-                        help='metric used to select the best evaluated epoch')
+    parser.add_argument('--print_freq', default=10)
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
-    parser.add_argument('--num_workers', default=0, type=int)
+    parser.add_argument('--num_workers', default=8, type=int)
     parser.add_argument('--seed', default=None, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
 
-    # 互补性损失函数超参数
-    parser.add_argument("--k", default=5, type=int)
+    # Complementary loss parameters
+    parser.add_argument("--k", default=5)
     parser.add_argument("--alpha", default=1, type=float)
     parser.add_argument("--beta", default=1, type=float)
-    parser.add_argument("--calculate_W_every_epoch", default=False, type=bool)
-
+    
     # Using GPU to accelerate the data loading
     parser.add_argument("--accelerate", type=str, default='yes', choices=['yes', 'no'])
-
+    
     parser.set_defaults(pin_mem=True)
 
     return parser
@@ -102,7 +99,7 @@ def train_one_time(args, state_logger):
     sampler_train = IncompleteDatasetSampler(dataset_train, seed=args.seed)
     sampler_test = torch.utils.data.RandomSampler(dataset_test)
 
-    # Used for fusion
+    # 用于fusion模块
     if args.missing_rate >= 0.0:
         temp_missing_rate = args.missing_rate
         args.missing_rate = 0.0
@@ -123,6 +120,7 @@ def train_one_time(args, state_logger):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         drop_last=False,
+
     )
     data_loader_train_all = torch.utils.data.DataLoader(
         dataset_all,
@@ -149,7 +147,6 @@ def train_one_time(args, state_logger):
     model = model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.99))
-
     if args.train_id == 0:
         print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
         state_logger.write('Batch size: {}'.format(args.batch_size))
@@ -161,10 +158,13 @@ def train_one_time(args, state_logger):
 
     state_logger.write('\n>> Start training {}-th initial, seed: {},'.format(args.train_id, args.seed))
 
-    best_result = None
-    best_epoch = None
+    #记录每个随机种子最优数据
+    best_result = {'nmi': 0.0, 'ari': 0.0, 'f': 0.0, 'acc': 0.0} 
+    best_epoch = 0
+    
     for epoch in range(args.start_epoch, args.epochs):
-        args.print_this_epoch = (epoch + 1) % args.print_freq == 0 or epoch + 1 == args.epochs or epoch == 0
+        args.print_this_epoch = epoch % args.print_freq == 0 or epoch + 1 == args.epochs
+
         train_state = train_one_epoch(
             model,
             data_loader_train,
@@ -172,33 +172,27 @@ def train_one_time(args, state_logger):
             data_loader_test,
             optimizer,
             device, epoch,
-            # scheduler,
             state_logger,
-            args,
+            args
         )
+        if args.output_dir and epoch + 1 == args.epochs:
+            # 记录最优数据
+            state_logger.write('Best Result: Epoch {} K-means: NMI = {:.4f} ARI = {:.4f} F = {:.4f} ACC = {:.4f}'
+                               .format(best_epoch, best_result['nmi'], best_result['ari'], best_result['f'],
+                                       best_result['acc']))
+            torch.save(model, args.output_dir + f"checkpoint_{epoch}")
         if args.print_this_epoch:
             state_logger.write('Epoch {} K-means: NMI = {:.4f} ARI = {:.4f} F = {:.4f} ACC = {:.4f}'
                                .format(epoch, train_state['nmi'], train_state['ari'], train_state['f'],
                                        train_state['acc']))
+        if epoch >= 100 and train_state['nmi'] >= best_result['nmi'] and train_state['ari'] >= best_result['ari'] and train_state['f'] >= best_result['f'] and train_state['acc'] >= best_result['acc']:
+            best_result['nmi'] = train_state['nmi']
+            best_result['ari'] = train_state['ari']
+            best_result['f'] = train_state['f']
+            best_result['acc'] = train_state['acc']
+            best_epoch = epoch
+    return train_state, best_result
 
-            if best_result is None or train_state[args.best_metric] >= best_result[args.best_metric]:
-                best_result = train_state.copy()
-                best_epoch = epoch
-                state_logger.write('Best Epoch Update: epoch {} by {} | NMI = {:.4f} ARI = {:.4f} F = {:.4f} ACC = {:.4f}'
-                                   .format(best_epoch, args.best_metric.upper(), best_result['nmi'],
-                                           best_result['ari'], best_result['f'], best_result['acc']))
-
-        if args.output_dir and epoch + 1 == args.epochs:
-            if best_result is None:
-                best_result = {'nmi': 0.0, 'ari': 0.0, 'f': 0.0, 'acc': 0.0}
-                state_logger.write('Best Result: no evaluated epoch was recorded.')
-            else:
-                state_logger.write('Best Result: epoch {} by {} | K-means: NMI = {:.4f} ARI = {:.4f} F = {:.4f} ACC = {:.4f}'
-                                   .format(best_epoch, args.best_metric.upper(), best_result['nmi'],
-                                           best_result['ari'], best_result['f'], best_result['acc']))
-            # torch.save(model, args.output_dir + f"checkpoint_{epoch}")
-
-    return train_state, best_result, best_epoch
 
 def main(args):
     start_time = time.time()
@@ -209,12 +203,15 @@ def main(args):
     if args.lr is None:  # only base_lr is specified
         args.lr = args.blr * batch_scale
 
-    state_logger = utils.FileLogger(os.path.join(args.output_dir, 'log_train.txt'))  # noting the state
+    state_logger = utils.FileLogger(os.path.join(args.output_dir, 'train_log.txt'))
 
     for t in range(args.train_time):
         args.train_id = t
-        train_state, best_result, best_epoch = train_one_time(args, state_logger)
+        # 记录最优数据
+        train_state, best_result = train_one_time(args, state_logger)
+        
         args.seed = args.seed + 1
+        # 记录最优数据
         for k, v in best_result.items():
             result_avr[k].append(v)
 
@@ -245,12 +242,10 @@ if __name__ == '__main__':
         args = argparse.Namespace(**args)
 
     folder_name = '_'.join(
-        [args.dataset, 'msrt', str(args.missing_rate),
-         'tau', str(args.temperature), 'bs', str(args.batch_size), 'blr', str(args.blr)])
+        [args.dataset, 'missing_rate', str(args.missing_rate), 'batch_size', str(args.batch_size)])
 
     args.embed_dim = args.encoder_dim[0][-1]
     args.output_dir = os.path.join(args.output_dir, folder_name)
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    Path(os.path.join(args.output_dir, 'visualize')).mkdir(parents=True, exist_ok=True)
-
     main(args)
+ 
