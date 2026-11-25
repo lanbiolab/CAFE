@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+
+CAFE/
+CAFE_smoke/
+RELIABLE/
+
+.ipynb_checkpoints/
